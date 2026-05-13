@@ -1,55 +1,75 @@
 import streamlit as st
 import PyPDF2
 import google.generativeai as genai
-import os
-from dotenv import load_dotenv
 
-# Load Environment Variables
-load_dotenv()
+# -------------------------------
+# PAGE CONFIG
+# -------------------------------
 
-# Gemini API Key
-API_KEY = os.getenv("GEMINI_API_KEY")
-
-# Check API Key
-if not API_KEY:
-    st.error("❌ Gemini API Key not found in .env file")
-    st.stop()
-
-# Configure Gemini
-genai.configure(api_key=API_KEY)
-
-# Gemini Model
-model = genai.GenerativeModel("gemini-2.5-flash")
-
-# Start Chat Session
-if "chat" not in st.session_state:
-    st.session_state.chat = model.start_chat(history=[])
-
-# Streamlit Page Config
 st.set_page_config(
     page_title="AI Resume Analyzer",
     page_icon="📄",
     layout="wide"
 )
 
-# Title
+# -------------------------------
+# GEMINI API CONFIG
+# -------------------------------
+
+try:
+
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+
+    genai.configure(api_key=API_KEY)
+
+    model = genai.GenerativeModel("gemini-2.5-flash")
+
+except Exception as e:
+
+    st.error(f"Gemini API Configuration Error:\n{str(e)}")
+
+    st.stop()
+
+# -------------------------------
+# CHAT SESSION
+# -------------------------------
+
+if "chat" not in st.session_state:
+
+    st.session_state.chat = model.start_chat(history=[])
+
+# -------------------------------
+# TITLE
+# -------------------------------
+
 st.title("📄 AI Resume Analyzer & AI Interview Bot")
 
-st.write("Upload your resume and get AI-powered analysis")
+st.write(
+    "Upload your resume and get AI-powered analysis and interview practice"
+)
 
-# Upload Resume
+# -------------------------------
+# FILE UPLOAD
+# -------------------------------
+
 uploaded_file = st.file_uploader(
     "Upload Resume PDF",
     type=["pdf"]
 )
 
-# Job Role Input
+# -------------------------------
+# JOB ROLE INPUT
+# -------------------------------
+
 job_role = st.text_input(
     "Enter Target Job Role",
     placeholder="Example: AI Engineer"
 )
 
-# Extract Text from PDF
+# -------------------------------
+# EXTRACT TEXT FROM PDF
+# -------------------------------
+
 def extract_text_from_pdf(pdf_file):
 
     text = ""
@@ -63,6 +83,7 @@ def extract_text_from_pdf(pdf_file):
             page_text = page.extract_text()
 
             if page_text:
+
                 text += page_text + "\n"
 
         return text[:5000]
@@ -71,7 +92,10 @@ def extract_text_from_pdf(pdf_file):
 
         return f"PDF Reading Error: {str(e)}"
 
-# Resume Analysis Function
+# -------------------------------
+# RESUME ANALYSIS
+# -------------------------------
+
 @st.cache_data(show_spinner=False)
 def analyze_resume(resume_text, job_role):
 
@@ -112,7 +136,10 @@ def analyze_resume(resume_text, job_role):
 {str(e)}
 """
 
-# Generate Interview Question
+# -------------------------------
+# GENERATE INTERVIEW QUESTION
+# -------------------------------
+
 def generate_question(job_role):
 
     prompt = f"""
@@ -129,7 +156,10 @@ def generate_question(job_role):
 
         return f"Error: {str(e)}"
 
-# Evaluate Candidate Answer
+# -------------------------------
+# EVALUATE ANSWER
+# -------------------------------
+
 def evaluate_answer(question, answer):
 
     prompt = f"""
@@ -159,13 +189,18 @@ def evaluate_answer(question, answer):
 
         return f"Error: {str(e)}"
 
-# Main App
+# -------------------------------
+# MAIN APP
+# -------------------------------
+
 if uploaded_file is not None and job_role:
 
-    # Extract Resume Text
     resume_text = extract_text_from_pdf(uploaded_file)
 
-    # Analyze Resume Button
+    # ---------------------------
+    # ANALYZE RESUME
+    # ---------------------------
+
     if st.button("Analyze Resume"):
 
         with st.spinner("🤖 Analyzing Resume..."):
@@ -175,40 +210,51 @@ if uploaded_file is not None and job_role:
                 job_role
             )
 
+        st.session_state.analysis = analysis
+
+    # ---------------------------
+    # SHOW ANALYSIS
+    # ---------------------------
+
+    if "analysis" in st.session_state:
+
         st.subheader("📌 Resume Analysis")
 
-        st.write(analysis)
+        st.write(st.session_state.analysis)
 
-        # Save Analysis
-        st.session_state.analysis = analysis
-        st.session_state.resume_text = resume_text
+    # ---------------------------
+    # INTERVIEW BOT
+    # ---------------------------
 
-    # AI Interview Bot Section
     st.divider()
 
     st.header("🎤 AI Interview Bot")
 
-    # Generate New Question
     if st.button("Generate Interview Question"):
 
         question = generate_question(job_role)
 
         st.session_state.current_question = question
 
-    # Show Question
+    # ---------------------------
+    # SHOW QUESTION
+    # ---------------------------
+
     if "current_question" in st.session_state:
 
         st.subheader("🧑‍💼 Interviewer Question")
 
         st.write(st.session_state.current_question)
 
-        # User Answer
         user_answer = st.text_area(
             "✍️ Your Answer",
             height=150
         )
 
-        # Evaluate Answer
+        # -----------------------
+        # EVALUATE ANSWER
+        # -----------------------
+
         if st.button("Evaluate My Answer"):
 
             if user_answer.strip() == "":
@@ -228,7 +274,10 @@ if uploaded_file is not None and job_role:
 
                 st.write(feedback)
 
-    # Download Report
+    # ---------------------------
+    # DOWNLOAD REPORT
+    # ---------------------------
+
     if "analysis" in st.session_state:
 
         report = f"""
